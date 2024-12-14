@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLVM Code Breakdown</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .step {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #007bff;
+        }
+        .step h3 {
+            margin-top: 0;
+        }
+        .sub-step {
+            margin-left: 20px;
+        }
+        .arrow {
+            font-size: 24px;
+            color: #007bff;
+            text-align: center;
+        }
+        .code-box {
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: "Courier New", monospace;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>LLVM Code Breakdown: Step-by-Step</h1>
+
+    <!-- Step 1: Initialize LLVM context -->
+    <div class="step">
+        <h3>Step 1: Initialize the LLVM Context and Module</h3>
+        <p>This step initializes the LLVM context and module to manage the intermediate representation (IR) of the program.</p>
+        <div class="code-box">
+            LLVMContext Context;<br>
+            Module *ModuleOb = new Module("FileReadAndPrint", Context);
+        </div>
+        <p>Here we set up the global context for IR generation and a module to hold the functions and variables.</p>
+    </div>
+
+    <!-- Step 2: Declare External Functions -->
+    <div class="step">
+        <h3>Step 2: Declare External Functions</h3>
+        <p>This step declares external functions such as fopen, printf, and fgetc that are used later in the code.</p>
+        <div class="code-box">
+            FunctionType *FopenType = FunctionType::get(Builder.getInt8PtrTy(), {Builder.getInt8PtrTy(), Builder.getInt8PtrTy()}, false);<br>
+            Function::Create(FopenType, Function::ExternalLinkage, "fopen", ModuleOb);
+        </div>
+    </div>
+
+    <!-- Step 3: Create Global Constants -->
+    <div class="step">
+        <h3>Step 3: Create Global Constants</h3>
+        <p>Defines global variables like file mode and error messages that will be used during execution.</p>
+        <div class="code-box">
+            ModuleOb->getOrInsertGlobal("mode", ArrayType::get(Builder.getInt8Ty(), 2));<br>
+            GlobalVariable *Mode = ModuleOb->getNamedGlobal("mode");<br>
+            Mode->setInitializer(ConstantDataArray::getString(Context, "r", true));
+        </div>
+    </div>
+
+    <!-- Step 4: Define the 'main' Function -->
+    <div class="step">
+        <h3>Step 4: Define the 'main' Function</h3>
+        <p>The 'main' function serves as the entry point for the program and returns an integer.</p>
+        <div class="code-box">
+            FunctionType *MainType = FunctionType::get(Builder.getInt32Ty(), {Builder.getInt32Ty(), Builder.getInt8PtrTy()->getPointerTo()}, false);<br>
+            Function *MainFunc = Function::Create(MainType, Function::ExternalLinkage, "main", ModuleOb);
+        </div>
+    </div>
+
+    <!-- Step 5: Extract Arguments -->
+    <div class="step">
+        <h3>Step 5: Extract Arguments</h3>
+        <p>Extract the command-line arguments passed to the 'main' function: argc and argv.</p>
+        <div class="code-box">
+            Value *Argc = ArgIter++;  // argc<br>
+            Value *Argv = ArgIter++;  // argv
+        </div>
+    </div>
+
+    <!-- Step 6: File Handling and Error Checking -->
+    <div class="step">
+        <h3>Step 6: Check Arguments and Open File</h3>
+        <p>Checks whether command-line arguments are provided and attempts to open the file.</p>
+        <div class="code-box">
+            Value *ArgCheck = Builder.CreateICmpSGT(Argc, Builder.getInt32(1), "arg_check");<br>
+            Value *File = Builder.CreateCall(ModuleOb->getFunction("fopen"), {Filename, Builder.CreateGlobalStringPtr("r")}, "file");
+        </div>
+        <div class="arrow">↓</div>
+    </div>
+
+    <!-- Step 7: Read Loop -->
+    <div class="step">
+        <h3>Step 7: Read Loop</h3>
+        <p>This block handles reading the file character by character using fgetc and storing the result.</p>
+        <div class="code-box">
+            Value *Read = Builder.CreateCall(ModuleOb->getFunction("fgetc"), File, "read");<br>
+            Value *Char = Builder.CreateTrunc(Read, Builder.getInt8Ty(), "char");
+        </div>
+        <div class="arrow">↓</div>
+    </div>
+
+    <!-- Step 8: Print Characters -->
+    <div class="step">
+        <h3>Step 8: Print Character</h3>
+        <p>If a character is read, it is printed using the printf function.</p>
+        <div class="code-box">
+            Builder.CreateCall(ModuleOb->getFunction("printf"), {Builder.CreateGlobalStringPtr("%c"), LoadedChar});
+        </div>
+    </div>
+
+    <!-- Step 9: Error Handling -->
+    <div class="step">
+        <h3>Step 9: Error Handling</h3>
+        <p>If the file cannot be opened, an error message is printed.</p>
+        <div class="code-box">
+            Builder.CreateCall(ModuleOb->getFunction("printf"), {Builder.CreateGlobalStringPtr("File open failed!\n")});
+            Builder.CreateRet(Builder.getInt32(1));
+        </div>
+    </div>
+
+    <!-- Final Step: Return Success -->
+    <div class="step">
+        <h3>Final Step: Return Success</h3>
+        <p>If the file is successfully read and printed, the program returns 0 to indicate success.</p>
+        <div class="code-box">
+            Builder.CreateRet(Builder.getInt32(0));
+        </div>
+    </div>
+    <div class="container">
+        <button class="button" onclick="window.location.href='index2.html';">NEXT: line by line explanation </button>
+    </div>
+</div>
+</body>
+</html>

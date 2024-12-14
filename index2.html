@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLVM Code Explanation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        code {
+            background-color: #eee;
+            padding: 2px 4px;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border-radius: 5px;
+            padding: 10px;
+            overflow: auto;
+            font-size: 14px;
+            border: 1px solid #ddd;
+        }
+        section {
+            margin-bottom: 30px;
+        }
+        .note {
+            background-color: #f9f9f9;
+            border-left: 4px solid #ffa500;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>LLVM Code Explanation</h1>
+
+<section>
+    <h2>1. Include necessary headers</h2>
+    <pre><code>#include &lt;llvm/IR/IRBuilder.h&gt;</code></pre>
+    <p>This includes the header file for <code>IRBuilder</code>, which is used to generate LLVM intermediate representation (IR) instructions.</p>
+
+    <pre><code>#include &lt;llvm/IR/LLVMContext.h&gt;</code></pre>
+    <p>Includes the <code>LLVMContext</code> header, which represents the global state for all LLVM IR constructions.</p>
+
+    <pre><code>#include &lt;llvm/IR/Module.h&gt;</code></pre>
+    <p>Includes the <code>Module</code> header, defining the <code>Module</code> class that is used to hold functions, global variables, and other IR constructs.</p>
+
+    <pre><code>#include &lt;llvm/Support/raw_ostream.h&gt;</code></pre>
+    <p>Includes the <code>raw_ostream</code> header, which provides utilities for outputting data to streams.</p>
+</section>
+
+<section>
+    <h2>2. Initialize LLVM context and module</h2>
+    <pre><code>LLVMContext Context;</code></pre>
+    <p>The <code>LLVMContext</code> represents the global state for LLVM's intermediate representation (IR) generation.</p>
+
+    <pre><code>Module *ModuleOb = new Module("FileReadAndPrint", Context);</code></pre>
+    <p>Creates a new <code>Module</code> object, which represents the entire program. It will contain functions, variables, and other components.</p>
+
+    <pre><code>IRBuilder<> Builder(Context);</code></pre>
+    <p>Creates an <code>IRBuilder</code> that helps in constructing LLVM IR incrementally. It's the primary tool for generating IR instructions.</p>
+</section>
+
+<section>
+    <h2>3. Declare external functions</h2>
+    <p>We declare external functions like <code>fopen</code>, <code>printf</code>, and <code>fgetc</code> that will be used in the program.</p>
+
+    <pre><code>FunctionType *FopenType = FunctionType::get(Builder.getInt8PtrTy(), {Builder.getInt8PtrTy(), Builder.getInt8PtrTy()}, false);</code></pre>
+    <p>This defines the function type for <code>fopen</code>, which takes two <code>const char*</code> parameters and returns a <code>FILE*</code>.</p>
+
+    <pre><code>Function::Create(FopenType, Function::ExternalLinkage, "fopen", ModuleOb);</code></pre>
+    <p>Creates the external declaration for the <code>fopen</code> function in the module.</p>
+
+    <pre><code>FunctionType *PrintfType = FunctionType::get(Builder.getInt32Ty(), {Builder.getInt8PtrTy()}, true);</code></pre>
+    <p>Defines the type of the <code>printf</code> function, which takes a format string and returns an integer.</p>
+
+    <pre><code>Function::Create(PrintfType, Function::ExternalLinkage, "printf", ModuleOb);</code></pre>
+    <p>Creates the external declaration for the <code>printf</code> function in the module.</p>
+
+    <pre><code>FunctionType *FgetcType = FunctionType::get(Builder.getInt32Ty(), {Builder.getInt8PtrTy()}, false);</code></pre>
+    <p>Defines the type for the <code>fgetc</code> function, which takes a <code>FILE*</code> and returns an integer.</p>
+
+    <pre><code>Function::Create(FgetcType, Function::ExternalLinkage, "fgetc", ModuleOb);</code></pre>
+    <p>Creates the external declaration for the <code>fgetc</code> function in the module.</p>
+</section>
+
+<section>
+    <h2>4. Create global constants</h2>
+    <p>We define global variables to store strings that will be used, like file opening mode, error messages, and format strings.</p>
+
+    <pre><code>ModuleOb->getOrInsertGlobal("mode", ArrayType::get(Builder.getInt8Ty(), 2));</code></pre>
+    <p>Creates a global variable <code>mode</code> for the file opening mode. It stores the string "r".</p>
+
+    <pre><code>GlobalVariable *Mode = ModuleOb->getNamedGlobal("mode");</code></pre>
+    <p>Retrieves the <code>mode</code> global variable.</p>
+
+    <pre><code>Mode->setInitializer(ConstantDataArray::getString(Context, "r", true));</code></pre>
+    <p>Sets the initializer for <code>mode</code> to the string "r".</p>
+
+    <pre><code>ModuleOb->getOrInsertGlobal("err_msg", ArrayType::get(Builder.getInt8Ty(), 19));</code></pre>
+    <p>Creates a global variable <code>err_msg</code> for the error message "File open failed!".</p>
+
+    <pre><code>ModuleOb->getOrInsertGlobal("fmt_char", ArrayType::get(Builder.getInt8Ty(), 3));</code></pre>
+    <p>Creates a global variable <code>fmt_char</code> for the format string "%c".</p>
+</section>
+
+<section>
+    <h2>5. Define the main function</h2>
+    <pre><code>FunctionType *MainType = FunctionType::get(Builder.getInt32Ty(), {Builder.getInt32Ty(), Builder.getInt8PtrTy()->getPointerTo()}, false);</code></pre>
+    <p>Defines the <code>main</code> function, which takes <code>argc</code> and <code>argv</code> as arguments and returns an integer.</p>
+
+    <pre><code>Function *MainFunc = Function::Create(MainType, Function::ExternalLinkage, "main", ModuleOb);</code></pre>
+    <p>Creates the <code>main</code> function in the module.</p>
+
+    <pre><code>BasicBlock *Entry = BasicBlock::Create(Context, "entry", MainFunc);</code></pre>
+    <p>Creates the entry block for the <code>main</code> function.</p>
+
+    <pre><code>Builder.SetInsertPoint(Entry);</code></pre>
+    <p>Sets the insertion point of the IRBuilder to the entry block.</p>
+</section>
+
+<section>
+    <h2>6. Extract arguments</h2>
+    <pre><code>auto ArgIter = MainFunc->arg_begin();</code></pre>
+    <p>Starts iterating over the arguments of the <code>main</code> function.</p>
+
+    <pre><code>Value *Argc = ArgIter++;  // argc</code></pre>
+    <p>Extracts <code>argc</code> from the arguments.</p>
+
+    <pre><code>Value *Argv = ArgIter++;  // argv</code></pre>
+    <p>Extracts <code>argv</code> from the arguments.</p>
+</section>
+
+<section>
+    <h2>7. Check if argc > 1</h2>
+    <pre><code>Value *ArgCheck = Builder.CreateICmpSGT(Argc, Builder.getInt32(1), "arg_check");</code></pre>
+    <p>Checks if the number of arguments is greater than 1 (i.e., if there is a filename argument).</p>
+
+    <pre><code>BasicBlock *OpenFile = BasicBlock::Create(Context, "open_file", MainFunc);</code></pre>
+    <p>Creates the "open_file" block for opening the file.</p>
+
+    <pre><code>BasicBlock *Error = BasicBlock::Create(Context, "error", MainFunc);</code></pre>
+    <p>Creates the "error" block for handling errors.</p>
+
+    <pre><code>Builder.CreateCondBr(ArgCheck, OpenFile, Error);</code></pre>
+    <p>Creates a conditional branch based on the argument check.</p>
+</section>
+
+<section>
+    <h2>8. Open file block</h2>
+    <pre><code>Builder.SetInsertPoint(OpenFile);</code></pre>
+    <p>Sets the insertion point to the "open_file" block.</p>
+
+    <pre><code>Value *FilenamePtr = Builder.CreateInBoundsGEP(Builder.getInt8PtrTy(), Argv, Builder.getInt32(1), "filename_ptr");</code></pre>
+    <p>Gets the filename from the <code>argv</code> array.</p>
+
+    <pre><code>Value *Filename = Builder.CreateLoad(Builder.getInt8PtrTy(), FilenamePtr, "filename");</code></pre>
+    <p>Loads the filename pointer.</p>
+
+    <pre><code>Value *File = Builder.CreateCall(ModuleOb->getFunction("fopen"), {Filename, Builder.CreateGlobalStringPtr("r")}, "file");</code></pre>
+    <p>Calls the <code>fopen</code> function to open the file in read mode.</p>
+
+    <pre><code>Value *FileCheck = Builder.CreateICmpEQ(File, Constant::getNullValue(Builder.getInt8PtrTy()), "file_check");</code></pre>
+    <p>Checks if the file was opened successfully by comparing the result with <code>NULL</code>.</p>
+
+    <pre><code>Builder.CreateCondBr(FileCheck, Error, ReadLoop);</code></pre>
+    <p>Branches to the "error" block if <code>fopen</code> failed, otherwise continues to the "read_loop".</p>
+</section>
+
+<section>
+    <h2>9. Read loop</h2>
+    <pre><code>Builder.SetInsertPoint(ReadLoop);</code></pre>
+    <p>Sets the insertion point to the "read_loop" block.</p>
+
+    <pre><code>Value *CharPtr = Builder.CreateAlloca(Builder.getInt8Ty(), nullptr, "char_ptr");</code></pre>
+    <p>Allocates space for a single character to store the result of <code>fgetc</code>.</p>
+
+    <pre><code>BasicBlock *Loop = BasicBlock::Create(Context, "loop", MainFunc);</code></pre>
+    <p>Creates the loop block for reading characters.</p>
+
+    <pre><code>Builder.CreateBr(Loop);</code></pre>
+    <p>Unconditionally branches to the loop.</p>
+</section>
+
+<section>
+    <h2>10. Loop body</h2>
+    <pre><code>Builder.SetInsertPoint(Loop);</code></pre>
+    <p>Sets the insertion point to the "loop" block.</p>
+
+    <pre><code>Value *Read = Builder.CreateCall(ModuleOb->getFunction("fgetc"), File, "read");</code></pre>
+    <p>Calls <code>fgetc</code> to read a character from the file.</p>
+
+    <pre><code>Value *Char = Builder.CreateTrunc(Read, Builder.getInt8Ty(), "char");</code></pre>
+    <p>Truncates the result of <code>fgetc</code> to an 8-bit character.</p>
+
+    <pre><code>Builder.CreateStore(Char, CharPtr);</code></pre>
+    <p>Stores the character in the allocated space <code>CharPtr</code>.</p>
+
+    <pre><code>Value *EOFCheck = Builder.CreateICmpEQ(Read, Builder.getInt32(-1), "eof_check");</code></pre>
+    <p>Checks if the character read is <code>-1</code>, indicating the end of the file.</p>
+
+    <pre><code>BasicBlock *Done = BasicBlock::Create(Context, "done", MainFunc);</code></pre>
+    <p>Creates the "done" block to finish execution.</p>
+
+    <pre><code>BasicBlock *PrintChar = BasicBlock::Create(Context, "print_char", MainFunc);</code></pre>
+    <p>Creates the "print_char" block for printing the character.</p>
+
+    <pre><code>Builder.CreateCondBr(EOFCheck, Done, PrintChar);</code></pre>
+    <p>Branches to "done" if EOF is reached, otherwise branches to "print_char".</p>
+</section>
+
+<section>
+    <h2>11. Print the character</h2>
+    <pre><code>Builder.SetInsertPoint(PrintChar);</code></pre>
+    <p>Sets the insertion point to the "print_char" block.</p>
+
+    <pre><code>Value *LoadedChar = Builder.CreateLoad(Builder.getInt8Ty(), CharPtr, "loaded_char");</code></pre>
+    <p>Loads the character stored in <code>CharPtr</code>.</p>
+
+    <pre><code>Builder.CreateCall(ModuleOb->getFunction("printf"), {Builder.CreateGlobalStringPtr("%c"), LoadedChar});</code></pre>
+    <p>Calls <code>printf</code> to print the character.</p>
+
+    <pre><code>Builder.CreateBr(Loop);</code></pre>
+    <p>Branches back to the loop to continue reading the next character.</p>
+</section>
+
+<section>
+    <h2>12. Error block</h2>
+    <pre><code>Builder.SetInsertPoint(Error);</code></pre>
+    <p>Sets the insertion point to the "error" block.</p>
+
+    <pre><code>Builder.CreateCall(ModuleOb->getFunction("printf"), {Builder.CreateGlobalStringPtr("File open failed!\n")});</code></pre>
+    <p>Prints an error message if the file couldn't be opened.</p>
+
+    <pre><code>Builder.CreateRet(Builder.getInt32(1));</code></pre>
+    <p>Returns 1 to indicate an error occurred.</p>
+</section>
+
+<section>
+    <h2>13. Done block</h2>
+    <pre><code>Builder.SetInsertPoint(Done);</code></pre>
+    <p>Sets the insertion point to the "done" block, indicating completion.</p>
+
+    <pre><code>Builder.CreateRet(Builder.getInt32(0));</code></pre>
+    <p>Returns 0 to indicate success.</p>
+</section>
+
+<section>
+    <h2>14. Print the generated LLVM IR</h2>
+    <pre><code>ModuleOb->print(outs(), nullptr);</code></pre>
+    <p>Prints the generated LLVM IR code to the standard output.</p>
+</section>
+
+<section>
+    <h2>15. Clean up</h2>
+    <pre><code>delete ModuleOb;</code></pre>
+    <p>Deletes the module to free up memory.</p>
+</section>
+
+</body>
+</html>
